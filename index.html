@@ -26,6 +26,8 @@
   --period: #e0628c;
   --predict: #e0628c;
   --chip: #f7eef1;
+  --fertile: #d6efe9;
+  --ovu: #1f8a78;
   --danger: #b3261e;
   --shadow: 0 1px 3px rgba(80, 20, 40, .08), 0 4px 16px rgba(80, 20, 40, .05);
   color-scheme: light;
@@ -43,6 +45,8 @@
     --period: #e0628c;
     --predict: #ec7aa0;
     --chip: #2f242a;
+    --fertile: #1d3a35;
+    --ovu: #4fc7b2;
     --danger: #ff8a80;
     --shadow: none;
     color-scheme: dark;
@@ -104,6 +108,18 @@ nav.tabs button.active { color: var(--accent); }
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .stat { background: var(--chip); border-radius: 14px; padding: 12px; }
 .stat b { display: block; font-size: 22px; }
+.count { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+.tile { background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); border-radius: 18px; padding: 14px 10px 12px; text-align: center; }
+.tile .t-lbl { font-size: 14px; font-weight: 600; }
+.tile .t-num { font-size: 52px; font-weight: 700; line-height: 1.05; letter-spacing: -.02em; margin: 4px 0 0; }
+.tile .t-num.word { font-size: 34px; line-height: 1.6; }
+.tile .t-unit { font-size: 15px; font-weight: 600; }
+.tile .t-date { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.tile.per { border-top: 5px solid var(--period); }
+.tile.per .t-lbl, .tile.per .t-num { color: var(--period); }
+.tile.ovu { border-top: 5px solid var(--ovu); }
+.tile.ovu .t-lbl, .tile.ovu .t-num { color: var(--ovu); }
+.disclaimer { font-size: 12px; color: var(--muted); text-align: center; margin: 0 0 14px; }
 .hint { background: var(--accent-soft); border-radius: 14px; padding: 12px 14px; font-size: 14px; margin-top: 12px; text-align: left; }
 
 /* Tagebuch */
@@ -130,6 +146,8 @@ input[type=date] { min-height: 46px; min-width: 0; max-width: 100%; -webkit-appe
 .day.other { visibility: hidden; }
 .day.period { background: var(--period); color: #fff; font-weight: 600; }
 .day.predict { border: 2px dashed var(--predict); }
+.day.fertile { background: var(--fertile); }
+.day.ovulation { background: var(--fertile); box-shadow: inset 0 0 0 2px var(--ovu); color: var(--ovu); font-weight: 700; }
 .day.today { outline: 2px solid var(--text); outline-offset: 1px; }
 .day.future:not(.predict) { color: var(--muted); }
 .day .dot { position: absolute; bottom: 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
@@ -282,6 +300,7 @@ const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); retu
 // Tage von a nach b (UTC, damit Sommerzeit nicht stört)
 const diff = (a, b) => { const [y1, m1, d1] = a.split('-').map(Number), [y2, m2, d2] = b.split('-').map(Number); return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 864e5); };
 const fmt = (s, withYear) => { const d = parse(s); return `${d.getDate()}. ${MONTHS_SHORT[d.getMonth()]}` + (withYear ? ` ${d.getFullYear()}` : ''); };
+const fmtShortDay = s => { const d = parse(s); return `${WEEKDAYS[d.getDay()].slice(0, 2)}., ${d.getDate()}. ${MONTHS_SHORT[d.getMonth()]}`; };
 const fmtLong = s => { const d = parse(s); return `${WEEKDAYS[d.getDay()]}, ${d.getDate()}. ${MONTHS[d.getMonth()]}`; };
 const isDate = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && toStr(parse(s)) === s;
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -331,6 +350,54 @@ function predictedDays(st) {
     }
   }
   return set;
+}
+
+// Eisprung: etwa 14 Tage vor der nächsten Periode. Fruchtbar: 5 Tage davor bis 1 Tag danach.
+const LUTEAL = 14;
+function ovulations(st) {
+  const list = [];
+  if (!st.last) return list;
+  // Ist die Periode überfällig, ist der nächste Zyklus noch unbekannt
+  const cycles = st.daysToNext < 0 ? 1 : 4;
+  for (let k = 0; k < cycles; k++) list.push(addDays(st.last.start, st.avgCycle * k + Math.max(st.avgCycle - LUTEAL, st.avgPeriod)));
+  return list;
+}
+function nextOvulation(st) { return ovulations(st).find(d => d >= today()) || null; }
+function fertileDays(st) {
+  const map = new Map(); // Datum -> 'fertile' | 'ovulation'
+  for (const ov of ovulations(st)) {
+    for (let i = -5; i <= 1; i++) map.set(addDays(ov, i), i === 0 ? 'ovulation' : 'fertile');
+  }
+  return map;
+}
+
+function countdownHTML(st) {
+  const t = today();
+  // Periode
+  let per;
+  if (st.open) {
+    per = `<div class="t-lbl">Periode läuft</div><div class="t-num">${diff(st.open.start, t) + 1}</div><div class="t-unit">Tag der Periode</div><div class="t-date">seit ${fmt(st.open.start)}</div>`;
+  } else if (st.daysToNext > 0) {
+    per = `<div class="t-lbl">Periode in</div><div class="t-num">${st.daysToNext}</div><div class="t-unit">${st.daysToNext === 1 ? 'Tag' : 'Tagen'}</div><div class="t-date">${fmtShortDay(st.nextStart)}</div>`;
+  } else if (st.daysToNext === 0) {
+    per = `<div class="t-lbl">Periode</div><div class="t-num word">heute</div><div class="t-unit">erwartet</div><div class="t-date">${fmtShortDay(t)}</div>`;
+  } else {
+    per = `<div class="t-lbl">Periode überfällig</div><div class="t-num">${-st.daysToNext}</div><div class="t-unit">${st.daysToNext === -1 ? 'Tag' : 'Tage'}</div><div class="t-date">erwartet am ${fmt(st.nextStart)}</div>`;
+  }
+  // Eisprung
+  const ov = nextOvulation(st);
+  let ovu;
+  if (!ov) {
+    ovu = `<div class="t-lbl">Eisprung</div><div class="t-num word">–</div><div class="t-unit">&nbsp;</div><div class="t-date">nach der nächsten Periode</div>`;
+  } else {
+    const n = diff(t, ov);
+    ovu = n === 0
+      ? `<div class="t-lbl">Eisprung</div><div class="t-num word">heute</div><div class="t-unit">ungefähr</div><div class="t-date">${fmtShortDay(ov)}</div>`
+      : `<div class="t-lbl">Eisprung in</div><div class="t-num">${n}</div><div class="t-unit">${n === 1 ? 'Tag' : 'Tagen'}</div><div class="t-date">${fmtShortDay(ov)}</div>`;
+  }
+  const fertileNow = fertileDays(st).has(t) && !st.open;
+  return `<div class="count"><div class="tile per">${per}</div><div class="tile ovu">${ovu}</div></div>
+    <p class="disclaimer">${fertileNow ? '<b style="color:var(--ovu)">Du bist gerade in deinen fruchtbaren Tagen.</b><br>' : ''}Geschätzte Werte – kein Verhütungsmittel.</p>`;
 }
 
 /* ---------- Perioden ändern ---------- */
@@ -525,8 +592,7 @@ function renderHeute() {
   } else {
     const dn = st.daysToNext;
     let line, sub;
-    if (dn > 1) { line = `Nächste Periode in ${dn} Tagen`; sub = `ungefähr am ${fmtLong(st.nextStart)}`; }
-    else if (dn === 1) { line = 'Nächste Periode ab morgen möglich'; sub = fmtLong(st.nextStart); }
+    if (dn > 0) { line = `Zyklustag ${st.cycleDay} von etwa ${st.avgCycle}`; sub = 'Die Periode kann ein paar Tage früher oder später kommen.'; }
     else if (dn === 0) { line = 'Periode heute erwartet'; sub = 'Kann aber auch ein paar Tage früher oder später kommen.'; }
     else { line = `${plural(-dn, 'Tag', 'Tage')} später als erwartet`; sub = 'Ein paar Tage Verschiebung sind ganz normal – Stress, Krankheit oder Reisen können den Zyklus verschieben.'; }
     const extra = dn < -14 ? '<div class="hint">Vielleicht wurde eine Periode nicht eingetragen? Im Kalender kannst du sie nachtragen. Bleibt die Periode länger aus, sprich mit einer Ärztin oder einem Arzt.</div>' : '';
@@ -549,7 +615,7 @@ function renderHeute() {
     ${st.measuredCycles < 3 ? `<p class="small muted" style="margin:10px 0 0">${st.measuredCycles === 0 ? 'Noch geschätzt.' : `Aus ${plural(st.measuredCycles, 'Zyklus', 'Zyklen')} berechnet.`} Die Vorhersage wird genauer, je mehr Zyklen eingetragen sind.</p>` : ''}
   </div>` : '';
 
-  app.innerHTML = `<h1>Heute</h1>${hero}
+  app.innerHTML = `<h1>Heute</h1>${st.last ? countdownHTML(st) : ''}${hero}
     <div class="card" id="diary"><h2>${fmtLong(t)}</h2>${diaryHTML(t)}</div>
     ${statsCard}`;
   bindDiary(app.querySelector('#diary'), t);
@@ -579,6 +645,7 @@ function pickDate(title, value, onOk, min) {
 function renderKalender() {
   const st = stats();
   const pred = predictedDays(st);
+  const fert = fertileDays(st);
   const t = today();
   const { y, m } = calMonth;
   const first = new Date(y, m, 1);
@@ -591,6 +658,7 @@ function renderKalender() {
     const cls = ['day'];
     if (ds <= t && periodAt(ds)) cls.push('period');
     else if (pred.has(ds)) cls.push('predict');
+    else if (fert.has(ds) && !(ds <= t && periodAt(ds))) cls.push(fert.get(ds));
     if (ds === t) cls.push('today');
     if (ds > t) cls.push('future');
     cells += `<button class="${cls.join(' ')}" data-d="${ds}">${d}${hasEntry(ds) ? '<span class="dot"></span>' : ''}</button>`;
@@ -605,7 +673,9 @@ function renderKalender() {
       <div class="grid">${['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(w => `<div class="wd">${w}</div>`).join('')}${cells}</div>
       <div class="legend">
         <span><i class="lg" style="background:var(--period)"></i>Periode</span>
-        <span><i class="lg" style="border:2px dashed var(--predict)"></i>Vorhersage</span>
+        <span><i class="lg" style="border:2px dashed var(--predict)"></i>Periode erwartet</span>
+        <span><i class="lg" style="background:var(--fertile)"></i>Fruchtbar</span>
+        <span><i class="lg" style="background:var(--fertile);box-shadow:inset 0 0 0 2px var(--ovu)"></i>Eisprung</span>
         <span><i class="lg" style="width:6px;height:6px;background:var(--accent)"></i>Eintrag</span>
       </div>
     </div>
@@ -623,7 +693,12 @@ function openDay(d) {
   if (d > t) {
     const st = stats();
     const isPred = predictedDays(st).has(d);
-    openSheet(fmtLong(d), `<p class="muted">${isPred ? 'An diesem Tag ist deine Periode wahrscheinlich – die Vorhersage ist aber nur ein Schätzwert.' : 'Dieser Tag liegt in der Zukunft. Einträge sind erst an dem Tag selbst möglich.'}</p>`);
+    const f = fertileDays(st).get(d);
+    const txt = isPred ? 'An diesem Tag ist deine Periode wahrscheinlich.'
+      : f === 'ovulation' ? 'Ungefähr an diesem Tag ist dein Eisprung.'
+      : f === 'fertile' ? 'Dieser Tag gehört wahrscheinlich zu deinen fruchtbaren Tagen.'
+      : 'Dieser Tag liegt in der Zukunft. Einträge sind erst an dem Tag selbst möglich.';
+    openSheet(fmtLong(d), `<p class="muted">${txt}</p>${isPred || f ? '<p class="small muted">Alle Vorhersagen sind Schätzungen und kein Verhütungsmittel.</p>' : ''}`);
     return;
   }
   const p = periodAt(d);
@@ -780,7 +855,7 @@ function renderEinstellungen() {
       <p class="small muted" style="margin:0">Diese App sendet keine Daten ins Internet. Es gibt kein Konto, keine Werbung und kein Tracking. Die Vorhersage ist nur eine Schätzung und kein Verhütungsmittel.</p>
     </div>
     <button class="btn danger" id="wipe">Alle Daten löschen</button>
-    <p class="small muted" style="text-align:center;margin-top:16px">Zyklus · Version 2</p>`;
+    <p class="small muted" style="text-align:center;margin-top:16px">Zyklus · Version 3</p>`;
 
   const num = (id, key, lo, hi) => app.querySelector(id).addEventListener('change', e => {
     const v = Math.round(Number(e.target.value));
