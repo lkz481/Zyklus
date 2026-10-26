@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#c2416e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Zyklus">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -32,6 +32,7 @@
   --blob1: rgba(236, 122, 160, .45);
   --blob2: rgba(79, 199, 178, .35);
   --blob3: rgba(255, 184, 200, .5);
+  --status-tint: rgba(184, 60, 104, .88);
   --fertile: #d6efe9;
   --ovu: #1f8a78;
   --danger: #b3261e;
@@ -57,6 +58,7 @@
     --blob1: rgba(236, 122, 160, .28);
     --blob2: rgba(79, 199, 178, .18);
     --blob3: rgba(160, 70, 120, .25);
+    --status-tint: rgba(26, 20, 23, .6);
     --fertile: #1d3a35;
     --ovu: #4fc7b2;
     --danger: #ff8a80;
@@ -65,7 +67,8 @@
   }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; }
+html, body { margin: 0; min-height: 100%; }
+html { background: var(--bg); }
 body {
   background: var(--bg);
   color: var(--text);
@@ -88,6 +91,9 @@ h2 { font-size: 17px; margin: 0 0 10px; }
   radial-gradient(circle at 92% 38%, var(--blob2) 0, transparent 36%),
   radial-gradient(circle at 18% 78%, var(--blob3) 0, transparent 40%),
   radial-gradient(circle at 85% 95%, var(--blob2) 0, transparent 30%); }
+/* Hinter der Statusleiste (Uhrzeit, Akku – auf dem iPhone weiß) etwas mehr Farbe, damit sie lesbar bleibt */
+.statusbar { position: fixed; top: 0; left: 0; right: 0; height: calc(env(safe-area-inset-top) + 24px); z-index: 60; pointer-events: none;
+  background: linear-gradient(to bottom, var(--status-tint) 0, var(--status-tint) calc(100% - 24px), transparent); }
 .muted { color: var(--muted); }
 .small { font-size: 14px; }
 .row { display: flex; gap: 10px; align-items: center; }
@@ -226,6 +232,7 @@ input[type=date] { min-height: 46px; min-width: 0; max-width: 100%; -webkit-appe
 </div>
 
 <div class="blobs" aria-hidden="true"></div>
+<div class="statusbar" aria-hidden="true"></div>
 <main id="app"></main>
 
 <nav class="tabs"><div class="inner">
@@ -874,7 +881,7 @@ function renderEinstellungen() {
       <p class="small muted" style="margin:0">Diese App sendet keine Daten ins Internet. Es gibt kein Konto, keine Werbung und kein Tracking. Die Vorhersage ist nur eine Schätzung und kein Verhütungsmittel.</p>
     </div>
     <button class="btn danger" id="wipe">Alle Daten löschen</button>
-    <p class="small muted" style="text-align:center;margin-top:16px">Zyklus · Version 4</p>`;
+    <p class="small muted" style="text-align:center;margin-top:16px">Zyklus · Version 5</p>`;
 
   const num = (id, key, lo, hi) => app.querySelector(id).addEventListener('change', e => {
     const v = Math.round(Number(e.target.value));
