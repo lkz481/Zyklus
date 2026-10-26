@@ -1,5 +1,5 @@
 // Offline-Cache für die App. Bei Änderungen an den Dateien VERSION erhöhen.
-const VERSION = 'zyklus-v1';
+const VERSION = 'zyklus-v2';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {
