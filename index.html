@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Zyklus</title>
+<meta name="description" content="Privater Periodenkalender – alle Daten bleiben auf dem Gerät.">
+<meta name="theme-color" content="#c2416e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Zyklus">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<style>
+:root {
+  --bg: #fff7f9;
+  --card: #ffffff;
+  --text: #2d1f26;
+  --muted: #7a6670;
+  --line: #f0dfe5;
+  --accent: #c2416e;
+  --accent-soft: #fbe3eb;
+  --accent-text: #ffffff;
+  --period: #e0628c;
+  --predict: #e0628c;
+  --chip: #f7eef1;
+  --danger: #b3261e;
+  --shadow: 0 1px 3px rgba(80, 20, 40, .08), 0 4px 16px rgba(80, 20, 40, .05);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1417;
+    --card: #251c21;
+    --text: #f5eaee;
+    --muted: #b49ea8;
+    --line: #3a2d33;
+    --accent: #ec7aa0;
+    --accent-soft: #48283a;
+    --accent-text: #1a1417;
+    --period: #e0628c;
+    --predict: #ec7aa0;
+    --chip: #2f242a;
+    --danger: #ff8a80;
+    --shadow: none;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior-y: none;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.hidden { display: none !important; }
+
+/* Layout */
+#app { min-height: 100%; padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 88px); max-width: 560px; margin: 0 auto; }
+h1 { font-size: 28px; margin: 4px 0 16px; letter-spacing: -.01em; }
+h2 { font-size: 17px; margin: 0 0 10px; }
+.card { background: var(--card); border-radius: 18px; padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); border: 1px solid var(--line); }
+.muted { color: var(--muted); }
+.small { font-size: 14px; }
+.row { display: flex; gap: 10px; align-items: center; }
+.row > * { flex: 1; }
+
+.btn { display: block; width: 100%; border: 0; border-radius: 14px; padding: 14px 16px; font-weight: 600; background: var(--accent); color: var(--accent-text); }
+.btn:active { opacity: .85; }
+.btn.secondary { background: var(--accent-soft); color: var(--accent); }
+.btn.ghost { background: transparent; color: var(--accent); padding: 10px; font-weight: 500; }
+.btn.danger { background: transparent; color: var(--danger); border: 1px solid var(--line); }
+.btn + .btn { margin-top: 10px; }
+.linkbtn { background: none; border: 0; color: var(--accent); padding: 4px 0; font-weight: 500; }
+
+/* Tab bar */
+nav.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+  display: flex; justify-content: center;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+  padding: 6px 8px calc(env(safe-area-inset-bottom) + 6px);
+}
+nav.tabs .inner { display: flex; width: 100%; max-width: 560px; }
+nav.tabs button { flex: 1; background: none; border: 0; padding: 6px 0; color: var(--muted); font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+nav.tabs button svg { width: 26px; height: 26px; }
+nav.tabs button.active { color: var(--accent); }
+
+/* Heute */
+.hero { text-align: center; padding: 24px 16px; }
+.ring { width: 200px; height: 200px; margin: 0 auto 14px; position: relative; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring .big { font-size: 46px; font-weight: 700; line-height: 1; }
+.ring .lbl { font-size: 14px; color: var(--muted); margin-top: 4px; }
+.hero .headline { font-size: 19px; font-weight: 600; margin: 0 0 4px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stat { background: var(--chip); border-radius: 14px; padding: 12px; }
+.stat b { display: block; font-size: 22px; }
+.hint { background: var(--accent-soft); border-radius: 14px; padding: 12px 14px; font-size: 14px; margin-top: 12px; text-align: left; }
+
+/* Tagebuch */
+.seg { display: flex; background: var(--chip); border-radius: 12px; padding: 3px; gap: 3px; }
+.seg button { flex: 1; border: 0; background: none; padding: 9px 4px; border-radius: 10px; font-size: 14px; color: var(--muted); }
+.seg button.on { background: var(--card); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: var(--chip); border-radius: 999px; padding: 7px 13px; font-size: 14px; }
+.chip.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.field-label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 16px 0 8px; }
+.field-label:first-child { margin-top: 0; }
+textarea, input[type=date], input[type=number] { width: 100%; border: 1px solid var(--line); background: var(--chip); border-radius: 12px; padding: 11px 12px; }
+textarea { min-height: 76px; resize: vertical; }
+input[type=date] { min-height: 46px; -webkit-appearance: none; appearance: none; }
+.saved { font-size: 13px; color: var(--muted); text-align: right; min-height: 18px; margin-top: 6px; }
+
+/* Kalender */
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.cal-head h2 { margin: 0; }
+.iconbtn { width: 40px; height: 40px; border-radius: 12px; border: 0; background: var(--chip); display: grid; place-items: center; }
+.grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.wd { text-align: center; font-size: 12px; color: var(--muted); padding: 4px 0; }
+.day { aspect-ratio: 1; border: 0; background: none; border-radius: 50%; position: relative; font-size: 15px; display: grid; place-items: center; padding: 0; }
+.day.other { visibility: hidden; }
+.day.period { background: var(--period); color: #fff; font-weight: 600; }
+.day.predict { border: 2px dashed var(--predict); }
+.day.today { outline: 2px solid var(--text); outline-offset: 1px; }
+.day.future:not(.predict) { color: var(--muted); }
+.day .dot { position: absolute; bottom: 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+.day.period .dot { background: #fff; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); margin-top: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.lg { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+
+/* Verlauf */
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { border-top: 1px solid var(--line); }
+.list li:first-child { border-top: 0; }
+.list button { width: 100%; background: none; border: 0; text-align: left; padding: 12px 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.list .sub { font-size: 13px; color: var(--muted); }
+.badge { font-size: 12px; background: var(--accent-soft); color: var(--accent); border-radius: 999px; padding: 3px 9px; white-space: nowrap; }
+.entry { padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.entry:first-child { border-top: 0; }
+
+/* Sheet / Dialog */
+.overlay { position: fixed; inset: 0; background: rgba(20, 5, 12, .4); z-index: 20; display: flex; align-items: flex-end; justify-content: center; animation: fade .15s ease-out; }
+.sheet { background: var(--bg); width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto; border-radius: 22px 22px 0 0; padding: 10px 16px calc(env(safe-area-inset-bottom) + 20px); animation: up .2s ease-out; }
+.sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 0 auto 12px; }
+.sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.sheet-head h2 { margin: 0; font-size: 20px; }
+.modal { align-items: center; padding: 16px; }
+.modal .box { background: var(--card); border-radius: 18px; padding: 20px; width: 100%; max-width: 380px; animation: pop .15s ease-out; }
+.modal .box p { margin: 0 0 16px; }
+@keyframes fade { from { opacity: 0; } }
+@keyframes up { from { transform: translateY(40px); opacity: .5; } }
+@keyframes pop { from { transform: scale(.96); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 90px); transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: 14px; z-index: 40; max-width: calc(100% - 32px); text-align: center; }
+
+/* Sperre */
+#lock { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
+#lock img { width: 72px; height: 72px; border-radius: 18px; margin-bottom: 14px; }
+.pin-dots { display: flex; gap: 16px; margin: 18px 0 26px; }
+.pin-dots span { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); }
+.pin-dots span.on { background: var(--accent); }
+.pin-dots.shake { animation: shake .35s; }
+@keyframes shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+.keypad { display: grid; grid-template-columns: repeat(3, 76px); gap: 14px; }
+.keypad button { width: 76px; height: 76px; border-radius: 50%; border: 0; background: var(--chip); font-size: 28px; }
+.keypad button:active { background: var(--accent-soft); }
+.keypad .blank { visibility: hidden; }
+.keypad .del { background: none; font-size: 16px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div id="lock" class="hidden">
+  <img src="icons/icon-180.png" alt="">
+  <div id="lock-title" style="font-size:18px;font-weight:600">Code eingeben</div>
+  <div class="pin-dots" id="pin-dots"><span></span><span></span><span></span><span></span></div>
+  <div class="keypad" id="keypad"></div>
+  <button class="linkbtn" id="lock-cancel" style="margin-top:22px">Code vergessen?</button>
+</div>
+
+<main id="app"></main>
+
+<nav class="tabs"><div class="inner">
+  <button data-tab="heute">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>Heute</button>
+  <button data-tab="kalender">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Kalender</button>
+  <button data-tab="verlauf">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 6h14M5 12h14M5 18h9"/></svg>Verlauf</button>
+  <button data-tab="einstellungen">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 6.5l2.6 1.5M17.2 16l2.6 1.5M4.2 17.5l2.6-1.5M17.2 8l2.6-1.5"/></svg>Einstellungen</button>
+</div></nav>
+
+<script>
+'use strict';
+
+/* ---------- Speicher ---------- */
+const KEY = 'zyklus-daten-v1';
+const DEFAULT_SETTINGS = { cycleLen: 28, periodLen: 5 };
+let state = load();
+
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      return {
+        periods: Array.isArray(s.periods) ? s.periods : [],
+        days: s.days && typeof s.days === 'object' ? s.days : {},
+        settings: { ...DEFAULT_SETTINGS, ...(s.settings || {}) },
+        pin: s.pin || null
+      };
+    }
+  } catch (e) { console.error(e); }
+  return { periods: [], days: {}, settings: { ...DEFAULT_SETTINGS }, pin: null };
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); }
+  catch (e) { toast('Speichern hat nicht geklappt. Ist der Speicher voll?'); }
+}
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+/* ---------- Datum ---------- */
+const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+const MONTHS_SHORT = ['Jan.', 'Feb.', 'März', 'Apr.', 'Mai', 'Juni', 'Juli', 'Aug.', 'Sep.', 'Okt.', 'Nov.', 'Dez.'];
+const WEEKDAYS = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+const pad = n => String(n).padStart(2, '0');
+const toStr = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const today = () => toStr(new Date());
+const addDays = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return toStr(d); };
+// Tage von a nach b (UTC, damit Sommerzeit nicht stört)
+const diff = (a, b) => { const [y1, m1, d1] = a.split('-').map(Number), [y2, m2, d2] = b.split('-').map(Number); return Math.round((Date.UTC(y2, m2 - 1, d2) - Date.UTC(y1, m1 - 1, d1)) / 864e5); };
+const fmt = (s, withYear) => { const d = parse(s); return `${d.getDate()}. ${MONTHS_SHORT[d.getMonth()]}` + (withYear ? ` ${d.getFullYear()}` : ''); };
+const fmtLong = s => { const d = parse(s); return `${WEEKDAYS[d.getDay()]}, ${d.getDate()}. ${MONTHS[d.getMonth()]}`; };
+const isDate = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && toStr(parse(s)) === s;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+/* ---------- Auswertung ---------- */
+function sorted() { return [...state.periods].sort((a, b) => a.start < b.start ? -1 : 1); }
+const mean = arr => Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+
+function stats() {
+  const ps = sorted();
+  const t = today();
+  const cycles = [];
+  for (let i = 0; i < ps.length - 1; i++) {
+    const len = diff(ps[i].start, ps[i + 1].start);
+    if (len >= 15 && len <= 60) cycles.push(len);
+  }
+  const recentCycles = cycles.slice(-6);
+  // Nur abgeschlossene Perioden zählen – eine laufende würde den Schnitt verfälschen.
+  const lens = ps.filter(p => p.end).map(p => diff(p.start, p.end) + 1).filter(l => l >= 1 && l <= 14).slice(-6);
+  const avgCycle = recentCycles.length ? mean(recentCycles) : state.settings.cycleLen;
+  const avgPeriod = lens.length ? mean(lens) : state.settings.periodLen;
+  const last = ps[ps.length - 1] || null;
+  const open = last && !last.end ? last : null;
+  const nextStart = last ? addDays(last.start, avgCycle) : null;
+  return {
+    ps, cycles, avgCycle, avgPeriod, last, open, nextStart,
+    cycleDay: last ? diff(last.start, t) + 1 : null,
+    daysToNext: nextStart ? diff(t, nextStart) : null,
+    measuredCycles: recentCycles.length, measuredPeriods: lens.length
+  };
+}
+function periodEnd(p) { return p.end || today(); }
+function periodAt(d) { return state.periods.find(p => p.start <= d && d <= periodEnd(p)) || null; }
+
+function predictedDays(st) {
+  const set = new Set();
+  if (!st.last) return set;
+  const t = today();
+  const lastActual = periodEnd(st.last);
+  for (let k = 1; k <= 3; k++) {
+    let s = addDays(st.last.start, st.avgCycle * k);
+    if (k === 1 && s <= t) s = addDays(t, 1); // überfällig: ab morgen anzeigen
+    for (let i = 0; i < st.avgPeriod; i++) {
+      const d = addDays(s, i);
+      if (d > t && d > lastActual) set.add(d);
+    }
+  }
+  return set;
+}
+
+/* ---------- Perioden ändern ---------- */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+function startPeriod(d) {
+  if (d > today()) return toast('Das Datum liegt in der Zukunft.');
+  if (periodAt(d)) return toast('An diesem Tag ist schon eine Periode eingetragen.');
+  const st = stats();
+  const ps = st.ps;
+  const notes = [];
+  // Läuft vorher noch eine offene Periode, wird sie beendet.
+  const prevOpen = ps.find(p => !p.end && p.start < d);
+  if (prevOpen) {
+    prevOpen.end = addDays(d, -1) < addDays(prevOpen.start, st.avgPeriod - 1) ? addDays(d, -1) : addDays(prevOpen.start, st.avgPeriod - 1);
+    notes.push('Die vorherige Periode war noch offen und wurde beendet');
+  }
+  const next = ps.find(p => p.start > d);
+  const p = { id: uid(), start: d, end: null };
+  if (next || diff(d, today()) >= st.avgPeriod + 2) {
+    // Nachgetragene Periode: Ende schätzen
+    let end = addDays(d, st.avgPeriod - 1);
+    if (next && end >= next.start) end = addDays(next.start, -1);
+    if (end > today()) end = today();
+    p.end = end;
+    notes.push('Ende geschätzt – im Verlauf anpassbar');
+  }
+  state.periods.push(p);
+  save();
+  toast(notes.length ? notes.join('. ') + '.' : 'Periode eingetragen.');
+}
+
+function endPeriod(p, d) {
+  if (d < p.start) return toast('Das Ende kann nicht vor dem Beginn liegen.');
+  if (d > today()) return toast('Das Datum liegt in der Zukunft.');
+  const clash = state.periods.find(o => o !== p && o.start > p.start && o.start <= d);
+  if (clash) return toast('Da beginnt schon die nächste Periode.');
+  p.end = d;
+  save();
+  toast('Ende eingetragen.');
+}
+
+/* ---------- Tagebuch ---------- */
+const FLOW = ['–', 'leicht', 'mittel', 'stark'];
+const SYMPTOMS = ['Bauchkrämpfe', 'Kopfschmerzen', 'Rückenschmerzen', 'Müde', 'Unreine Haut', 'Brustspannen', 'Übelkeit', 'Heißhunger', 'Blähbauch', 'Schlecht geschlafen'];
+const MOODS = ['😊 gut', '😌 ruhig', '😐 geht so', '😢 traurig', '😠 gereizt', '😰 unruhig'];
+
+function getDay(d) { return state.days[d] || { flow: 0, symptoms: [], mood: '', note: '' }; }
+function setDay(d, entry) {
+  const empty = !entry.flow && !entry.symptoms.length && !entry.mood && !entry.note.trim();
+  if (empty) delete state.days[d]; else state.days[d] = entry;
+  save();
+}
+function hasEntry(d) { return !!state.days[d]; }
+
+function diaryHTML(d) {
+  const e = getDay(d);
+  return `
+    <div class="field-label">Stärke der Periode</div>
+    <div class="seg" data-k="flow">${FLOW.map((f, i) => `<button type="button" data-v="${i}" class="${e.flow === i ? 'on' : ''}">${f}</button>`).join('')}</div>
+    <div class="field-label">Wie fühlt sich dein Körper an?</div>
+    <div class="chips" data-k="symptoms">${SYMPTOMS.map(s => `<button type="button" class="chip ${e.symptoms.includes(s) ? 'on' : ''}" data-v="${esc(s)}">${esc(s)}</button>`).join('')}</div>
+    <div class="field-label">Stimmung</div>
+    <div class="chips" data-k="mood">${MOODS.map(m => `<button type="button" class="chip ${e.mood === m ? 'on' : ''}" data-v="${esc(m)}">${esc(m)}</button>`).join('')}</div>
+    <div class="field-label">Notiz</div>
+    <textarea data-k="note" placeholder="Was möchtest du festhalten?">${esc(e.note)}</textarea>
+    <div class="saved" data-saved></div>`;
+}
+function bindDiary(root, d) {
+  const savedEl = root.querySelector('[data-saved]');
+  const commit = () => {
+    const e = getDay(d);
+    const entry = { flow: e.flow, symptoms: [...e.symptoms], mood: e.mood, note: e.note };
+    return entry;
+  };
+  const done = entry => { setDay(d, entry); savedEl.textContent = 'Gespeichert ✓'; clearTimeout(savedEl._t); savedEl._t = setTimeout(() => savedEl.textContent = '', 1500); };
+  root.querySelector('[data-k=flow]').addEventListener('click', ev => {
+    const b = ev.target.closest('button'); if (!b) return;
+    const entry = commit(); entry.flow = Number(b.dataset.v);
+    root.querySelectorAll('[data-k=flow] button').forEach(x => x.classList.toggle('on', x === b));
+    done(entry);
+  });
+  root.querySelector('[data-k=symptoms]').addEventListener('click', ev => {
+    const b = ev.target.closest('button'); if (!b) return;
+    const entry = commit(); const v = b.dataset.v;
+    entry.symptoms = entry.symptoms.includes(v) ? entry.symptoms.filter(x => x !== v) : [...entry.symptoms, v];
+    b.classList.toggle('on');
+    done(entry);
+  });
+  root.querySelector('[data-k=mood]').addEventListener('click', ev => {
+    const b = ev.target.closest('button'); if (!b) return;
+    const entry = commit(); entry.mood = entry.mood === b.dataset.v ? '' : b.dataset.v;
+    root.querySelectorAll('[data-k=mood] button').forEach(x => x.classList.toggle('on', x.dataset.v === entry.mood));
+    done(entry);
+  });
+  const ta = root.querySelector('[data-k=note]');
+  let timer;
+  ta.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => { const entry = commit(); entry.note = ta.value; done(entry); }, 400); });
+  ta.addEventListener('blur', () => { clearTimeout(timer); const entry = commit(); if (entry.note !== ta.value) { entry.note = ta.value; done(entry); } });
+}
+
+/* ---------- UI-Helfer ---------- */
+const app = document.getElementById('app');
+let tab = 'heute';
+let calMonth = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; })();
+
+function toast(msg) {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+
+function openSheet(title, html, onBind) {
+  const ov = document.createElement('div');
+  ov.className = 'overlay';
+  ov.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>
+    <div class="sheet-head"><h2>${title}</h2><button class="linkbtn" data-close>Fertig</button></div>${html}</div>`;
+  const close = () => { ov.remove(); render(); };
+  ov.addEventListener('click', e => { if (e.target === ov || e.target.closest('[data-close]')) close(); });
+  document.body.appendChild(ov);
+  if (onBind) onBind(ov.querySelector('.sheet'), close);
+  return close;
+}
+
+function ask(text, okLabel = 'OK', danger = false) {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.className = 'overlay modal';
+    ov.innerHTML = `<div class="box"><p>${text}</p>
+      <button class="btn ${danger ? 'danger' : ''}" data-ok>${okLabel}</button>
+      <button class="btn ghost" data-no>Abbrechen</button></div>`;
+    ov.addEventListener('click', e => {
+      if (e.target.closest('[data-ok]')) { ov.remove(); resolve(true); }
+      else if (e.target.closest('[data-no]') || e.target === ov) { ov.remove(); resolve(false); }
+    });
+    document.body.appendChild(ov);
+  });
+}
+
+/* ---------- Ansicht: Heute ---------- */
+function ringSVG(frac) {
+  const r = 88, c = 2 * Math.PI * r;
+  const f = Math.max(0, Math.min(1, frac));
+  return `<svg viewBox="0 0 200 200"><circle cx="100" cy="100" r="${r}" fill="none" stroke="var(--accent-soft)" stroke-width="14"/>
+    <circle cx="100" cy="100" r="${r}" fill="none" stroke="var(--accent)" stroke-width="14" stroke-linecap="round" stroke-dasharray="${c * f} ${c}"/></svg>`;
+}
+
+function renderHeute() {
+  const st = stats();
+  const t = today();
+  let hero;
+  if (!st.last) {
+    hero = `<div class="card hero">
+      <p class="headline">Willkommen 👋</p>
+      <p class="muted">Trag ein, wann deine letzte Periode begonnen hat. Danach rechnet die App aus, wann die nächste ungefähr kommt.</p>
+      <button class="btn" data-act="start-today">Periode hat heute begonnen</button>
+      <button class="btn secondary" data-act="start-other">An einem anderen Tag begonnen</button>
+    </div>`;
+  } else if (st.open) {
+    const n = diff(st.open.start, t) + 1;
+    hero = `<div class="card hero">
+      <div class="ring">${ringSVG(n / st.avgPeriod)}<div class="center"><div class="big">${n}</div><div class="lbl">Tag der Periode</div></div></div>
+      <p class="headline">Deine Periode läuft</p>
+      <p class="muted small">seit ${fmtLong(st.open.start)}</p>
+      <button class="btn" data-act="end-today">Periode ist heute vorbei</button>
+      <button class="btn secondary" data-act="end-other">War schon früher vorbei</button>
+      ${n > 10 ? `<div class="hint">Die Periode läuft schon ${n} Tage. Hast du vielleicht vergessen, das Ende einzutragen?</div>` : ''}
+    </div>`;
+  } else {
+    const dn = st.daysToNext;
+    let line, sub;
+    if (dn > 1) { line = `Nächste Periode in ${dn} Tagen`; sub = `ungefähr am ${fmtLong(st.nextStart)}`; }
+    else if (dn === 1) { line = 'Nächste Periode ab morgen möglich'; sub = fmtLong(st.nextStart); }
+    else if (dn === 0) { line = 'Periode heute erwartet'; sub = 'Kann aber auch ein paar Tage früher oder später kommen.'; }
+    else { line = `${plural(-dn, 'Tag', 'Tage')} später als erwartet`; sub = 'Ein paar Tage Verschiebung sind ganz normal – Stress, Krankheit oder Reisen können den Zyklus verschieben.'; }
+    hero = `<div class="card hero">
+      <div class="ring">${ringSVG(st.cycleDay / st.avgCycle)}<div class="center"><div class="big">${st.cycleDay}</div><div class="lbl">Zyklustag</div></div></div>
+      <p class="headline">${line}</p>
+      <p class="muted small">${sub}</p>
+      <button class="btn" data-act="start-today">Periode hat heute begonnen</button>
+      <button class="btn ghost" data-act="start-other">An einem anderen Tag begonnen</button>
+    </div>`;
+  }
+
+  const statsCard = st.last ? `<div class="card">
+    <h2>Dein Durchschnitt</h2>
+    <div class="stats">
+      <div class="stat"><b>${st.avgCycle} Tage</b><span class="small muted">Zykluslänge</span></div>
+      <div class="stat"><b>${st.avgPeriod} Tage</b><span class="small muted">Periodenlänge</span></div>
+    </div>
+    ${st.measuredCycles < 3 ? `<p class="small muted" style="margin:10px 0 0">${st.measuredCycles === 0 ? 'Noch geschätzt.' : `Aus ${plural(st.measuredCycles, 'Zyklus', 'Zyklen')} berechnet.`} Die Vorhersage wird genauer, je mehr Zyklen eingetragen sind.</p>` : ''}
+  </div>` : '';
+
+  app.innerHTML = `<h1>Heute</h1>${hero}
+    <div class="card" id="diary"><h2>${fmtLong(t)}</h2>${diaryHTML(t)}</div>
+    ${statsCard}`;
+  bindDiary(app.querySelector('#diary'), t);
+
+  app.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => {
+    const a = b.dataset.act;
+    if (a === 'start-today') { startPeriod(t); render(); }
+    if (a === 'end-today') { endPeriod(st.open, t); render(); }
+    if (a === 'start-other') pickDate('Wann hat die Periode begonnen?', st.open ? null : t, d => startPeriod(d));
+    if (a === 'end-other') pickDate('Wann war die Periode vorbei?', addDays(t, -1), d => endPeriod(st.open, d), st.open.start);
+  }));
+}
+
+function pickDate(title, value, onOk, min) {
+  openSheet(title, `<input type="date" id="pick" max="${today()}" ${min ? `min="${min}"` : ''} value="${value || today()}">
+    <div style="height:14px"></div><button class="btn" id="pick-ok">Speichern</button>`, (sheet, close) => {
+    sheet.querySelector('#pick-ok').addEventListener('click', () => {
+      const v = sheet.querySelector('#pick').value;
+      if (!isDate(v)) return toast('Bitte ein Datum auswählen.');
+      onOk(v); close();
+    });
+  });
+}
+
+/* ---------- Ansicht: Kalender ---------- */
+function renderKalender() {
+  const st = stats();
+  const pred = predictedDays(st);
+  const t = today();
+  const { y, m } = calMonth;
+  const first = new Date(y, m, 1);
+  const offset = (first.getDay() + 6) % 7; // Montag zuerst
+  const daysIn = new Date(y, m + 1, 0).getDate();
+  let cells = '';
+  for (let i = 0; i < offset; i++) cells += '<button class="day other" tabindex="-1"></button>';
+  for (let d = 1; d <= daysIn; d++) {
+    const ds = `${y}-${pad(m + 1)}-${pad(d)}`;
+    const cls = ['day'];
+    if (ds <= t && periodAt(ds)) cls.push('period');
+    else if (pred.has(ds)) cls.push('predict');
+    if (ds === t) cls.push('today');
+    if (ds > t) cls.push('future');
+    cells += `<button class="${cls.join(' ')}" data-d="${ds}">${d}${hasEntry(ds) ? '<span class="dot"></span>' : ''}</button>`;
+  }
+  app.innerHTML = `<h1>Kalender</h1>
+    <div class="card">
+      <div class="cal-head">
+        <button class="iconbtn" data-nav="-1" aria-label="Vorheriger Monat"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <h2>${MONTHS[m]} ${y}</h2>
+        <button class="iconbtn" data-nav="1" aria-label="Nächster Monat"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+      <div class="grid">${['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(w => `<div class="wd">${w}</div>`).join('')}${cells}</div>
+      <div class="legend">
+        <span><i class="lg" style="background:var(--period)"></i>Periode</span>
+        <span><i class="lg" style="border:2px dashed var(--predict)"></i>Vorhersage</span>
+        <span><i class="lg" style="width:6px;height:6px;background:var(--accent)"></i>Eintrag</span>
+      </div>
+    </div>
+    <p class="small muted" style="text-align:center">Tippe auf einen Tag, um etwas einzutragen.</p>`;
+  app.querySelectorAll('[data-nav]').forEach(b => b.addEventListener('click', () => {
+    const d = new Date(calMonth.y, calMonth.m + Number(b.dataset.nav), 1);
+    calMonth = { y: d.getFullYear(), m: d.getMonth() };
+    render();
+  }));
+  app.querySelectorAll('.day[data-d]').forEach(b => b.addEventListener('click', () => openDay(b.dataset.d)));
+}
+
+function openDay(d) {
+  const t = today();
+  if (d > t) {
+    const st = stats();
+    const isPred = predictedDays(st).has(d);
+    openSheet(fmtLong(d), `<p class="muted">${isPred ? 'An diesem Tag ist deine Periode wahrscheinlich – die Vorhersage ist aber nur ein Schätzwert.' : 'Dieser Tag liegt in der Zukunft. Einträge sind erst an dem Tag selbst möglich.'}</p>`);
+    return;
+  }
+  const p = periodAt(d);
+  let actions;
+  if (p) {
+    const n = diff(p.start, d) + 1;
+    actions = `<div class="hint" style="margin:0 0 12px">Tag ${n} der Periode (${fmt(p.start)} – ${p.end ? fmt(p.end) : 'läuft noch'})</div>
+      ${p.end !== d ? `<button class="btn secondary" data-a="end">Periode endete an diesem Tag</button>` : ''}`;
+  } else {
+    actions = `<button class="btn secondary" data-a="start">Periode begann an diesem Tag</button>`;
+  }
+  openSheet(fmtLong(d), `${actions}<div class="card" style="margin-top:14px">${diaryHTML(d)}</div>`, (sheet, close) => {
+    bindDiary(sheet.querySelector('.card'), d);
+    const a = sheet.querySelector('[data-a]');
+    if (a) a.addEventListener('click', () => {
+      if (a.dataset.a === 'start') startPeriod(d); else endPeriod(p, d);
+      close();
+    });
+  });
+}
+
+/* ---------- Ansicht: Verlauf ---------- */
+function renderVerlauf() {
+  const st = stats();
+  const ps = [...st.ps].reverse();
+  const items = ps.map((p, i) => {
+    const prev = ps[i + 1];
+    const len = p.end ? diff(p.start, p.end) + 1 : null;
+    const cyc = prev ? diff(prev.start, p.start) : null;
+    return `<li><button data-id="${p.id}">
+      <span><b>${fmt(p.start, true)}</b> – ${p.end ? fmt(p.end, true) : 'läuft noch'}
+      <div class="sub">${len ? plural(len, 'Tag', 'Tage') + ' Periode' : 'noch nicht beendet'}${cyc ? ` · Zyklus davor: ${cyc} Tage` : ''}</div></span>
+      <span class="badge">Ändern</span></button></li>`;
+  }).join('');
+
+  const since = addDays(today(), -90);
+  const entries = Object.keys(state.days).filter(d => d >= since).sort().reverse().map(d => {
+    const e = state.days[d];
+    const parts = [];
+    if (e.flow) parts.push('Stärke: ' + FLOW[e.flow]);
+    if (e.mood) parts.push(esc(e.mood));
+    if (e.symptoms.length) parts.push(e.symptoms.map(esc).join(', '));
+    return `<div class="entry"><b>${fmt(d)}</b> ${parts.length ? '· ' + parts.join(' · ') : ''}${e.note ? `<div class="muted">${esc(e.note)}</div>` : ''}</div>`;
+  }).join('');
+
+  app.innerHTML = `<h1>Verlauf</h1>
+    <div class="card"><h2>Perioden</h2>
+      ${items ? `<ul class="list">${items}</ul>` : '<p class="muted">Noch keine Periode eingetragen.</p>'}
+      <button class="btn ghost" id="add-past">+ Frühere Periode nachtragen</button>
+    </div>
+    <div class="card"><h2>Einträge der letzten 3 Monate</h2>
+      ${entries || '<p class="muted">Noch keine Einträge. Auf „Heute“ oder im Kalender kannst du festhalten, wie es dir geht.</p>'}
+    </div>`;
+  app.querySelector('#add-past').addEventListener('click', () => pickDate('Wann hat die Periode begonnen?', addDays(today(), -30), d => startPeriod(d)));
+  app.querySelectorAll('[data-id]').forEach(b => b.addEventListener('click', () => editPeriod(state.periods.find(p => p.id === b.dataset.id))));
+}
+
+function editPeriod(p) {
+  openSheet('Periode ändern', `
+    <div class="field-label">Beginn</div><input type="date" id="ps" max="${today()}" value="${p.start}">
+    <div class="field-label">Ende</div><input type="date" id="pe" max="${today()}" value="${p.end || ''}">
+    <p class="small muted">Leer lassen, wenn die Periode noch läuft.</p>
+    <button class="btn" id="p-save">Speichern</button>
+    <button class="btn danger" id="p-del">Periode löschen</button>`, (sheet, close) => {
+    sheet.querySelector('#p-save').addEventListener('click', () => {
+      const s = sheet.querySelector('#ps').value, e = sheet.querySelector('#pe').value || null;
+      const t = today();
+      if (!isDate(s)) return toast('Bitte einen Beginn auswählen.');
+      if (s > t || (e && e > t)) return toast('Das Datum liegt in der Zukunft.');
+      if (e && e < s) return toast('Das Ende kann nicht vor dem Beginn liegen.');
+      const others = state.periods.filter(o => o !== p);
+      const endEff = e || t;
+      if (others.some(o => o.start <= endEff && s <= periodEnd(o))) return toast('Überschneidet sich mit einer anderen Periode.');
+      if (!e && others.some(o => o.start > s)) return toast('Nur die letzte Periode darf noch laufen – bitte ein Ende eintragen.');
+      p.start = s; p.end = e; save(); toast('Gespeichert.'); close();
+    });
+    sheet.querySelector('#p-del').addEventListener('click', async () => {
+      if (await ask(`Periode vom ${fmt(p.start, true)} wirklich löschen?`, 'Löschen', true)) {
+        state.periods = state.periods.filter(o => o !== p); save(); close();
+      }
+    });
+  });
+}
+
+/* ---------- Ansicht: Einstellungen ---------- */
+function renderEinstellungen() {
+  const s = state.settings;
+  app.innerHTML = `<h1>Einstellungen</h1>
+    <div class="card"><h2>Code-Sperre</h2>
+      <p class="small muted" style="margin-top:0">${state.pin ? 'Die App ist mit einem 4-stelligen Code geschützt.' : 'Schütze die App mit einem 4-stelligen Code.'}</p>
+      ${state.pin
+        ? '<button class="btn secondary" id="pin-change">Code ändern</button><button class="btn danger" id="pin-off">Code-Sperre ausschalten</button>'
+        : '<button class="btn secondary" id="pin-on">Code festlegen</button>'}
+    </div>
+    <div class="card"><h2>Startwerte</h2>
+      <p class="small muted" style="margin-top:0">Werden genutzt, solange noch nicht genug Zyklen eingetragen sind.</p>
+      <div class="row">
+        <label><div class="field-label">Zyklus (Tage)</div><input type="number" inputmode="numeric" id="s-cyc" min="18" max="45" value="${s.cycleLen}"></label>
+        <label><div class="field-label">Periode (Tage)</div><input type="number" inputmode="numeric" id="s-per" min="1" max="10" value="${s.periodLen}"></label>
+      </div>
+    </div>
+    <div class="card"><h2>Sicherung</h2>
+      <p class="small muted" style="margin-top:0">Alle Daten liegen nur auf diesem Gerät. Speichere ab und zu eine Sicherung (z.&nbsp;B. in „Dateien“), damit beim Handywechsel nichts verloren geht.</p>
+      <button class="btn secondary" id="exp">Sicherung speichern</button>
+      <button class="btn secondary" id="imp">Sicherung laden</button>
+      <input type="file" id="imp-file" accept="application/json,.json" class="hidden">
+    </div>
+    <div class="card"><h2>Datenschutz</h2>
+      <p class="small muted" style="margin:0">Diese App sendet keine Daten ins Internet. Es gibt kein Konto, keine Werbung und kein Tracking. Die Vorhersage ist nur eine Schätzung und kein Verhütungsmittel.</p>
+    </div>
+    <button class="btn danger" id="wipe">Alle Daten löschen</button>
+    <p class="small muted" style="text-align:center;margin-top:16px">Zyklus · Version 1</p>`;
+
+  const num = (id, key, lo, hi) => app.querySelector(id).addEventListener('change', e => {
+    const v = Math.round(Number(e.target.value));
+    if (v >= lo && v <= hi) { state.settings[key] = v; save(); toast('Gespeichert.'); }
+    else { e.target.value = state.settings[key]; toast(`Bitte eine Zahl von ${lo} bis ${hi}.`); }
+  });
+  num('#s-cyc', 'cycleLen', 18, 45);
+  num('#s-per', 'periodLen', 1, 10);
+
+  const on = (id, fn) => { const el = app.querySelector(id); if (el) el.addEventListener('click', fn); };
+  on('#pin-on', () => setupPin());
+  on('#pin-change', () => setupPin());
+  on('#pin-off', async () => { if (await ask('Code-Sperre ausschalten?', 'Ausschalten')) { state.pin = null; save(); render(); } });
+  on('#exp', exportData);
+  on('#imp', () => app.querySelector('#imp-file').click());
+  app.querySelector('#imp-file').addEventListener('change', e => { if (e.target.files[0]) importData(e.target.files[0]); e.target.value = ''; });
+  on('#wipe', async () => {
+    if (!await ask('Wirklich <b>alle</b> Einträge löschen? Das kann nicht rückgängig gemacht werden.', 'Alles löschen', true)) return;
+    state = { periods: [], days: {}, settings: { ...DEFAULT_SETTINGS }, pin: null };
+    save(); toast('Alle Daten gelöscht.'); render();
+  });
+}
+
+async function exportData() {
+  const data = { app: 'zyklus', version: 1, exportiert: new Date().toISOString(), periods: state.periods, days: state.days, settings: state.settings };
+  const name = `zyklus-sicherung-${today()}.json`;
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const file = new File([blob], name, { type: 'application/json' });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: 'Zyklus-Sicherung' }); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+async function importData(file) {
+  let data;
+  try { data = JSON.parse(await file.text()); } catch { return toast('Die Datei konnte nicht gelesen werden.'); }
+  if (!data || data.app !== 'zyklus' || !Array.isArray(data.periods)) return toast('Das ist keine Zyklus-Sicherung.');
+  const periods = data.periods.filter(p => p && isDate(p.start) && (p.end === null || p.end === undefined || isDate(p.end)))
+    .map(p => ({ id: String(p.id || uid()), start: p.start, end: p.end || null }));
+  const days = {};
+  for (const [d, e] of Object.entries(data.days || {})) {
+    if (!isDate(d) || !e) continue;
+    days[d] = {
+      flow: [0, 1, 2, 3].includes(e.flow) ? e.flow : 0,
+      symptoms: Array.isArray(e.symptoms) ? e.symptoms.map(String) : [],
+      mood: typeof e.mood === 'string' ? e.mood : '',
+      note: typeof e.note === 'string' ? e.note : ''
+    };
+  }
+  if (!await ask(`Sicherung laden? Sie enthält ${plural(periods.length, 'Periode', 'Perioden')} und ${plural(Object.keys(days).length, 'Tageseintrag', 'Tageseinträge')}. Die jetzigen Daten werden dabei ersetzt.`, 'Laden')) return;
+  state.periods = periods;
+  state.days = days;
+  state.settings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) };
+  save(); toast('Sicherung geladen.'); render();
+}
+
+/* ---------- Code-Sperre ---------- */
+async function hashPin(pin, salt) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt + ':' + pin));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+const lockEl = document.getElementById('lock');
+const dotsEl = document.getElementById('pin-dots');
+let pinInput = '', pinHandler = null;
+
+document.getElementById('keypad').innerHTML = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫']
+  .map(k => `<button type="button" class="${k === '' ? 'blank' : k === '⌫' ? 'del' : ''}" data-k="${k}" ${k === '⌫' ? 'aria-label="Löschen"' : ''}>${k === '⌫' ? 'Löschen' : k}</button>`).join('');
+document.getElementById('keypad').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || !pinHandler) return;
+  const k = b.dataset.k;
+  if (pinInput.length === 4) return; // Eingabe wird gerade geprüft
+  if (k === '⌫') pinInput = pinInput.slice(0, -1);
+  else if (k) pinInput += k;
+  drawDots();
+  if (pinInput.length === 4) { const v = pinInput, h = pinHandler; setTimeout(() => h(v), 120); }
+});
+function drawDots() { dotsEl.querySelectorAll('span').forEach((s, i) => s.classList.toggle('on', i < pinInput.length)); }
+function shake() { dotsEl.classList.remove('shake'); void dotsEl.offsetWidth; dotsEl.classList.add('shake'); pinInput = ''; drawDots(); }
+
+function showPad(title, cancelLabel, onPin, onCancel) {
+  document.getElementById('lock-title').textContent = title;
+  const c = document.getElementById('lock-cancel');
+  c.textContent = cancelLabel; c.onclick = onCancel;
+  pinInput = ''; drawDots();
+  pinHandler = onPin;
+  lockEl.classList.remove('hidden');
+}
+function hidePad() { lockEl.classList.add('hidden'); pinHandler = null; pinInput = ''; }
+
+function lock() {
+  if (!state.pin) return;
+  showPad('Code eingeben', 'Code vergessen?', async pin => {
+    if (await hashPin(pin, state.pin.salt) === state.pin.hash) { hidePad(); render(); }
+    else shake();
+  }, forgotPin);
+}
+async function forgotPin() {
+  if (!await ask('Der Code kann nicht wiederhergestellt werden. Du kannst die App nur zurücksetzen – dabei werden <b>alle Einträge gelöscht</b>. Mit einer Sicherungsdatei kannst du sie danach wieder laden.', 'App zurücksetzen', true)) return;
+  state = { periods: [], days: {}, settings: { ...DEFAULT_SETTINGS }, pin: null };
+  save(); hidePad(); render();
+}
+function setupPin() {
+  showPad('Neuen Code eingeben', 'Abbrechen', first => {
+    showPad('Code wiederholen', 'Abbrechen', async second => {
+      if (second !== first) { toast('Die Codes stimmen nicht überein.'); return setupPin(); }
+      const salt = uid();
+      state.pin = { salt, hash: await hashPin(first, salt) };
+      save(); hidePad(); toast('Code gespeichert.'); render();
+    }, () => { hidePad(); });
+  }, () => { hidePad(); });
+}
+// Nach einer Minute im Hintergrund wieder sperren
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) hiddenAt = Date.now();
+  else if (state.pin && Date.now() - hiddenAt > 60000 && lockEl.classList.contains('hidden')) lock();
+});
+
+/* ---------- Start ---------- */
+function render() {
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  ({ heute: renderHeute, kalender: renderKalender, verlauf: renderVerlauf, einstellungen: renderEinstellungen })[tab]();
+}
+document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => {
+  tab = b.dataset.tab;
+  if (tab === 'kalender') { const d = new Date(); calMonth = { y: d.getFullYear(), m: d.getMonth() }; }
+  render(); window.scrollTo(0, 0);
+}));
+// Um Mitternacht oder nach langer Pause das Datum aktualisieren
+let lastDay = today();
+setInterval(() => { if (today() !== lastDay) { lastDay = today(); if (!document.querySelector('.overlay')) render(); } }, 60000);
+
+render();
+lock();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
