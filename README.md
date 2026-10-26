@@ -2,7 +2,7 @@
 
 Privater Periodenkalender als Web-App fürs iPhone. Alle Daten bleiben auf dem Gerät – kein Konto, kein Server, kein Tracking.
 
-**App:** https://lkz481.github.io/zyklus/
+**App:** https://lkz481.github.io/Zyklus/
 
 ## Installieren (iPhone)
 1. Link in **Safari** öffnen.
