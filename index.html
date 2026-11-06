@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Zyklus</title>
 <meta name="description" content="Privater Periodenkalender – alle Daten bleiben auf dem Gerät.">
 <meta name="theme-color" content="#c2416e">
@@ -266,13 +267,14 @@ function clean(s) {
   out.settings = { cycleLen: int(set.cycleLen, 18, 45, DEFAULT_SETTINGS.cycleLen), periodLen: int(set.periodLen, 1, 10, DEFAULT_SETTINGS.periodLen) };
   const ids = new Set();
   const ps = (Array.isArray(s.periods) ? s.periods : [])
-    .filter(p => p && isDate(p.start) && p.start <= t)
+    // Ein paar Tage Spielraum, damit Reisen über Zeitzonen oder eine falsche Uhr keine Perioden löschen
+    .filter(p => p && isDate(p.start) && p.start <= addDays(t, 2))
     .map(p => {
       let end = isDate(p.end) ? p.end : null;
       if (end && end < p.start) end = p.start;
-      if (end && end > t) end = t;
+      if (end && end > addDays(t, 2)) end = addDays(t, 2);
       let id = String(p.id || '');
-      if (!id || ids.has(id)) id = uid();
+      if (!/^[A-Za-z0-9_-]{1,40}$/.test(id) || ids.has(id)) id = uid();
       ids.add(id);
       return { id, start: p.start, end };
     })
@@ -759,7 +761,7 @@ function renderVerlauf() {
     const prev = ps[i + 1];
     const len = p.end ? diff(p.start, p.end) + 1 : null;
     const cyc = prev ? diff(prev.start, p.start) : null;
-    return `<li><button data-id="${p.id}">
+    return `<li><button data-id="${esc(p.id)}">
       <span><b>${fmt(p.start, true)}</b> – ${p.end ? fmt(p.end, true) : 'läuft noch'}
       <div class="sub">${len ? plural(len, 'Tag', 'Tage') + ' Periode' : 'noch nicht beendet'}${cyc ? ` · Zyklus davor: ${cyc} Tage` : ''}</div></span>
       <span class="badge">Ändern</span></button></li>`;
@@ -881,7 +883,7 @@ function renderEinstellungen() {
       <p class="small muted" style="margin:0">Diese App sendet keine Daten ins Internet. Es gibt kein Konto, keine Werbung und kein Tracking. Die Vorhersage ist nur eine Schätzung und kein Verhütungsmittel.</p>
     </div>
     <button class="btn danger" id="wipe">Alle Daten löschen</button>
-    <p class="small muted" style="text-align:center;margin-top:16px">Zyklus · Version 5</p>`;
+    <p class="small muted" style="text-align:center;margin-top:16px">Zyklus · Version 6</p>`;
 
   const num = (id, key, lo, hi) => app.querySelector(id).addEventListener('change', e => {
     const v = Math.round(Number(e.target.value));
@@ -1008,7 +1010,10 @@ document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('cl
 }));
 // Um Mitternacht oder nach langer Pause das Datum aktualisieren
 let lastDay = today();
-setInterval(() => { if (today() !== lastDay) { lastDay = today(); if (!document.querySelector('.overlay')) render(); } }, 60000);
+function refreshDay() { if (today() !== lastDay) { lastDay = today(); if (!document.querySelector('.overlay')) render(); } }
+setInterval(refreshDay, 60000);
+// iOS pausiert Timer im Hintergrund – beim Zurückkehren in die App sofort prüfen
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshDay(); });
 
 render();
 lock();
